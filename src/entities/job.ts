@@ -32,6 +32,7 @@ export interface IJob {
     newHead: string| null | undefined;
     patch: string | null | undefined;
     alias: string | null | undefined;
+    // Why do the payload and the job need duplicates of these 3 values?:
     manifestPrefix: string | undefined;
     pathPrefix: string | null | undefined;
     mutPrefix: string | null | undefined;

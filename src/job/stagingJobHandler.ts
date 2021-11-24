@@ -17,12 +17,14 @@ export class StagingJobHandler extends JobHandler {
     }
 
     prepDeployCommands(): void {
+        // TODO: Log the deployCommands in case of failure?
         this.currJob.deployCommands = [
             '. /venv/bin/activate',
             `cd repos/${this.currJob.payload.repoName}`,
             'make stage'
         ];
         if (this.currJob.payload.isNextGen) {
+            // TODO: Remove mut manifest generation logic from staging build/deploy logic
             if (this.currJob.payload.pathPrefix) {
                 this.currJob.deployCommands[this.currJob.deployCommands.length - 1] = `make next-gen-stage MUT_PREFIX=${this.currJob.payload.mutPrefix}`;
             } else {

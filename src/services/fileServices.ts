@@ -44,9 +44,11 @@ export class FileSystemServices implements IFileSystemServices {
         if (this.isDownloadSuccess(resp)) {
             const yamlParsed = yaml.safeLoad(resp.data);
             returnObject['status'] = 'success';
+            // Consider renaming 'content' to 'yaml'
             returnObject['content'] = yamlParsed;
         } else {
             returnObject['status'] = 'failed';
+            // Consider renaming 'content' to 'response'
             returnObject['content'] = resp;
         }
         return returnObject;
@@ -54,6 +56,7 @@ export class FileSystemServices implements IFileSystemServices {
 
     async saveUrlAsFile(url: string, path: string, options: any): Promise<boolean> {
         let resp = await this.download(url);
+        // TODO: resp?.status and resp?.data
         if (resp && resp.status == 200 && resp.data) {
             this.writeToFile(path, resp.data, options);
         } else {

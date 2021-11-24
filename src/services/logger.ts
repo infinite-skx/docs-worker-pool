@@ -28,6 +28,7 @@ export class HybridJobLogger extends ConsoleLogger implements IJobRepoLogger {
         super();
         this._jobRepo = jobRepo;
     }
+    // TODO: Should this function be called write? or log?
     async save(contextId: string, message: string): Promise<void> { 
         try {
             this.info(contextId, message); 

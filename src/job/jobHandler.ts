@@ -10,6 +10,11 @@ import { IConfig } from "config";
 import { IJobValidator } from "./jobValidator";
 var fs = require('fs');
 
+// TODO: The 'payload' should come from mongodb, and not be mutated. Then, instead of applying
+// patches to the payload (in multiple locations), we use a function in JobHandler to create a separate
+// object in the job (e.g. "job.metainfo" or something) that contains all our extra details
+// (like pathprefix, manifest prefix, mutprefix, etc.). It should be easier to read and tweak
+// if it is all generated in one place
 export abstract class JobHandler {
     private _currJob: IJob;
     public get currJob(): IJob {
@@ -36,8 +41,10 @@ export abstract class JobHandler {
     }
     private _fileSystemServices: IFileSystemServices;
 
+    // Should this be called "isStopping"?
     private _shouldStop: boolean;
 
+    // Should this be called "crashed" instead?
     private _stopped: boolean;
     public get stopped(): boolean {
         return this._stopped;
@@ -66,6 +73,7 @@ export abstract class JobHandler {
         this._validator = validator;
     }
 
+    // TODO: Should this be called "prepJobSpecificNextGenCommands()" instead?
     abstract prepStageSpecificNextGenCommands(): void;
 
     private async update(publishResult: CommandExecutorResponse): Promise<void> {
@@ -82,14 +90,15 @@ export abstract class JobHandler {
         this._fileSystemServices.removeDirectory(`repos/${this.currJob.payload.repoName}`);
     }
 
+    // TODO: Untangle this prefix logic
     @throwIfJobInterupted()
     private async constructPrefix(): Promise<void> {
         const server_user = this._config.get<string>("GATSBY_PARSER_USER");
+        // Current only productionJob implements getPathPrefix
         let pathPrefix = await this.getPathPrefix();
         if (typeof pathPrefix !== 'undefined' && pathPrefix !== null) {
             this.currJob.payload.pathPrefix = pathPrefix;
-            const mutPrefix = pathPrefix.split(`/${server_user}`)[0];
-            this.currJob.payload.mutPrefix = mutPrefix;
+            this.currJob.payload.mutPrefix = pathPrefix.split(`/${server_user}`)[0];
         }
     }
 
@@ -102,6 +111,7 @@ export abstract class JobHandler {
     @throwIfJobInterupted()
     private async cloneRepo(targetPath: string): Promise<void> {
         await this._logger.save(this.currJob._id, `${'(GIT)'.padEnd(15)}Cloning repository`);
+        // TODO: Do we need both these logs?
         await this._logger.save(this.currJob._id, `${'(GIT)'.padEnd(15)}running fetch`);
         await this._repoConnector.cloneRepo(this.currJob, targetPath);
     }
@@ -151,7 +161,12 @@ export abstract class JobHandler {
     }
 
     @throwIfJobInterupted()
-    public isbuildNextGen(): boolean {
+    // TODO: Just check if workerContents.includes("build-and-stage-next-gen")
+    // Suggestion: rename to just "isNextGen"
+    // Currently, worker.sh is used exclusively as a next-gen flag, with the string
+    // "build-and-stage-next-gen" included. See:
+    // https://github.com/mongodb/docs-compass/blob/master/worker.sh
+    public isBuildNextGen(): boolean {
         const workerPath = `repos/${this.currJob.payload.repoName}/worker.sh`;
         if (this._fileSystemServices.rootFileExists(workerPath)) {
             const workerContents = this._fileSystemServices.readFileAsUtf8(workerPath);
@@ -167,14 +182,16 @@ export abstract class JobHandler {
 
     @throwIfJobInterupted()
     private async prepNextGenBuild(): Promise<void> {
-        if (this.isbuildNextGen()) {
+        if (this.isBuildNextGen()) {
             await this._validator.throwIfBranchNotConfigured(this.currJob);
             await this.constructPrefix();
+            // TODO: Remove construction of ManifestIndexPath?
             if (!this.currJob.payload.aliased || (this.currJob.payload.aliased && this.currJob.payload.primaryAlias)) {
                 await this.constructManifestIndexPath();
             }
             this.prepStageSpecificNextGenCommands();
             this.constructEnvVars();
+            // TODO: Do we need this isNextGen field?
             this.currJob.payload.isNextGen = true;
             if (this._currJob.payload.jobType === 'productionDeploy') {
                 this._validator.throwIfItIsNotPublishable(this._currJob);
@@ -211,12 +228,11 @@ export abstract class JobHandler {
         if (typeof pathPrefix !== 'undefined' && pathPrefix !== null) {
             envVars += `PATH_PREFIX=${pathPrefix}\n`
         }
+        // Preserved as example of how to create frontend vars for toggleable rendering
         // const snootyFrontEndVars = {
         //   'GATSBY_FEATURE_FLAG_CONSISTENT_NAVIGATION': this._config.get<boolean>("gatsbyConsitentNavFlag"),
         //   'GATSBY_FEATURE_FLAG_SDK_VERSION_DROPDOWN': this._config.get<boolean>("gatsbySDKVersionDropdownFlag"),
-
         // };
-
         // for (const[envName, envValue] of Object.entries(snootyFrontEndVars)) {
         //   if (envValue) envVars += `${envName}=TRUE\n`;
         // }
@@ -231,7 +247,7 @@ export abstract class JobHandler {
         return Promise.resolve();
     }
 
-    protected abstract deploy(): Promise<CommandExecutorResponse>;
+    protected abstract deploy(): Promise<any>;
 
     protected abstract prepDeployCommands(): void;
 
@@ -304,10 +320,12 @@ export abstract class JobHandler {
         }
     }
 
+    // TODO: Should the following two functions be declared in the same places as the "stopped" getter and setter above?
     public stop(): void {
         this._shouldStop = true;
     }
 
+    // TODO: Should this return _shouldStop or _stopped? Or, should the function be called shouldStop()?
     public isStopped(): boolean {
         return this._shouldStop;
     }
@@ -327,6 +345,7 @@ function throwIfJobInterupted() {
                 if (jobHandler && jobHandler.isStopped() && !jobHandler.stopped) {
                     jobHandler.getLogger().info(descriptor.value, `Resetting Job with ID: ${jobHandler.currJob._id} because server is being shut down`);
                     jobHandler.jobRepository.resetJobStatus(jobHandler.currJob._id, 'inQueue', `Resetting Job with ID: ${jobHandler.currJob._id} because server is being shut down`);
+                    // Should this set the stopped directly? Or, perhaps call the variable 'crashed'?
                     jobHandler.stopped = true;
                     throw new JobStoppedError(`${jobHandler.currJob._id} is stopped`);
                 }

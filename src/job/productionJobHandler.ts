@@ -26,7 +26,9 @@ export class ProductionJobHandler extends JobHandler {
         ];
 
         if (this.currJob.payload.isNextGen) {
+            // TODO: Remove mut manifest generation logic from production build/deploy logic
             const manifestPrefix = this.currJob.payload.manifestPrefix;
+            // TODO: Use a push()-like command to add to deployCommands, instead of this
             this.currJob.deployCommands[this.currJob.deployCommands.length - 1] = `make next-gen-deploy MUT_PREFIX=${this.currJob.payload.mutPrefix}`;
             if (manifestPrefix) {
                 this.currJob.deployCommands[this.currJob.deployCommands.length - 1] += ` MANIFEST_PREFIX=${manifestPrefix} GLOBAL_SEARCH_FLAG=${this.currJob.payload.stableBranch}`;
@@ -34,6 +36,7 @@ export class ProductionJobHandler extends JobHandler {
         }
     }
 
+    // TODO: Is this supposed to be stage-specific, or job-specific?
     prepStageSpecificNextGenCommands(): void {
         if (this.currJob && this.currJob.buildCommands) {
             this.currJob.buildCommands[this.currJob.buildCommands.length - 1] = 'make get-build-dependencies';
@@ -41,6 +44,7 @@ export class ProductionJobHandler extends JobHandler {
         }
     }
 
+    // TODO: Remove manifest path construction logic from production build/deploy logic
     async constructManifestIndexPath(): Promise<void> {
         try {
             const {output} = await this.commandExecutor.getSnootyProjectName(this.currJob.payload.repoName);
@@ -51,6 +55,7 @@ export class ProductionJobHandler extends JobHandler {
         }
     }
 
+    // TODO: Rename to createPathPrefix?
     async getPathPrefix(): Promise<string> {
         try {
             let pathPrefix = ""
@@ -95,6 +100,7 @@ export class ProductionJobHandler extends JobHandler {
     }
 
     async deploy(): Promise<CommandExecutorResponse> {
+        // TODO: Would be nice to fix this deployGeneric pattern
         let resp = await this.deployGeneric();
         try {
             const makefileOutput = resp.output.replace(/\r/g, '').split(/\n/);
